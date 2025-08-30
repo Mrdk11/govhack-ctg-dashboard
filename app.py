@@ -5,6 +5,26 @@ import numpy as np
 import re
 from pathlib import Path
 
+def first_notna(*vals):
+    import pandas as pd, numpy as np
+    for v in vals:
+        if v is None:
+            continue
+        try:
+            # treat pandas NA and numpy nan as missing
+            if pd.notna(v) and not (isinstance(v, float) and np.isnan(v)):
+                return float(v)
+        except Exception:
+            # if it's a Series/Index etc. try to get scalar
+            try:
+                vv = v.iloc[0]
+                if pd.notna(vv) and not (isinstance(vv, float) and np.isnan(vv)):
+                    return float(vv)
+            except Exception:
+                continue
+    return float("nan")
+
+
 st.set_page_config(page_title="Closing the Gap – Multiplier Map", layout="wide")
 
 DATA_HINT = """
@@ -172,21 +192,40 @@ def national_status_table():
     return pd.DataFrame(rows)
 
 def state_series(df, cfg, state_code):
-    # Build a small time series for a state + national + trajectory
     x = df.copy()
     x = x[x["Measure"].str.contains(cfg["measure_hint"], case=False, na=False)]
     x = x[x["Indigenous_Status"].str.contains("Aboriginal and Torres Strait Islander people", na=False)]
     x = x[x["Sex"] == "All people"]
+
+    # bail out early if the state column doesn't exist in the file
+    if state_code not in x.columns:
+        return pd.DataFrame()
+
     x["Year_num"] = pd.to_numeric(x["Year"], errors="coerce")
+
     # actuals
-    xa = x[x["Description3"] == "Actual"].dropna(subset=["Year_num"]).sort_values("Year_num")
-    df_state = xa[["Year_num", state_code]].rename(columns={state_code:"state"})
-    df_nat = xa[["Year_num", "Aust"]].rename(columns={"Aust":"national"})
+    xa = x[x.get("Description3", pd.Series(index=x.index, dtype=str)) == "Actual"].copy()
+    xa = xa.dropna(subset=["Year_num"]).sort_values("Year_num")
+    # make sure numeric
+    for col in (state_code, "Aust"):
+        if col in xa.columns:
+            xa[col] = pd.to_numeric(xa[col], errors="coerce")
+
+    df_state = xa[["Year_num", state_code]].rename(columns={state_code:"state"}) if state_code in xa.columns else pd.DataFrame(columns=["Year_num","state"])
+    df_nat   = xa[["Year_num", "Aust"]].rename(columns={"Aust":"national"}) if "Aust" in xa.columns else pd.DataFrame(columns=["Year_num","national"])
     ts = df_state.merge(df_nat, on="Year_num", how="outer")
-    # trajectory
-    xt = x[x["Description3"] == "Trajectory"][["Year_num", state_code, "Aust"]].rename(columns={state_code:"traj_state", "Aust":"traj_nat"})
+
+    # trajectory (may be missing per-state)
+    xt = x[x.get("Description3", pd.Series(index=x.index, dtype=str)) == "Trajectory"].copy()
+    xt["Year_num"] = pd.to_numeric(xt["Year"], errors="coerce")
+    for col in (state_code, "Aust"):
+        if col in xt.columns:
+            xt[col] = pd.to_numeric(xt[col], errors="coerce")
+    xt = xt[["Year_num", state_code, "Aust"]].rename(columns={state_code:"traj_state", "Aust":"traj_nat"}) if not xt.empty else pd.DataFrame(columns=["Year_num","traj_state","traj_nat"])
+
     ts = ts.merge(xt, on="Year_num", how="outer")
-    return ts
+    return ts.sort_values("Year_num")
+
 
 def render_traffic_cell(status):
     color = {"On track":"#1f8a70", "Not on track":"#e3a008", "Worsening":"#d64545", "Unknown":"#6b7280"}.get(status, "#6b7280")
