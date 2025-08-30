@@ -276,9 +276,15 @@ elif page == "Regional drilldown":
                 st.caption("No latest data point found for the state.")
             else:
                 a = latest_row["state"].iloc[0]
-                t = latest_row["traj_state"].iloc[0] if not np.isnan(latest_row["traj_state"].iloc[0]) else latest_row["traj_nat"].iloc[0]
+                # robust fallback: traj_state -> traj_nat -> national
+                t = first_notna(
+                    latest_row["traj_state"].iloc[0] if "traj_state" in latest_row.columns else None,
+                    latest_row["traj_nat"].iloc[0]   if "traj_nat"   in latest_row.columns else None,
+                    latest_row["national"].iloc[0]   if "national"   in latest_row.columns else None,
+                )
                 status = status_from_actual_vs_traj(a, t, lower_is_better=cfg["lower_is_better"])
                 st.markdown(f"**Latest state status:** {render_traffic_cell(status)}", unsafe_allow_html=True)
+
 
 elif page == "Playbooks":
     st.markdown("## Playbooks (auto-generated)")
