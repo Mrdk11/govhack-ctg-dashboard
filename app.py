@@ -7,7 +7,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="Closing the Gap – Multiplier Map", layout="wide")
 
-DATA_HINT = \"\"\"
+DATA_HINT = """
 Place these files alongside app.py (same folder):
 
 - ctg-202507-ctg01-healthy-lives-dataset.csv
@@ -19,7 +19,7 @@ Place these files alongside app.py (same folder):
 (optional, improves Playbooks)
 - priority_reforms_proxy_by_state.csv
 - step4_t4_top10.csv
-\"\"\"
+"""
 
 st.sidebar.title("CtG – Dashboard")
 page = st.sidebar.radio("Navigate", ["Overview", "Regional drilldown", "Playbooks"])
