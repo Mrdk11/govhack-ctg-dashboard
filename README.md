@@ -46,3 +46,7 @@ streamlit run app.py
 1. Push repo to GitHub.
 2. Go to https://share.streamlit.io -> New app -> choose repo/branch.
 3. Main file path: app.py -> Deploy.
+
+## Here is an image:
+
+![My Image](./images/2.1.png)
